@@ -1,0 +1,86 @@
+x-db-env: &db-env
+  POSTGRES_DB: delivery
+  POSTGRES_USER: delivery
+  POSTGRES_PASSWORD: delivery
+
+x-minio-env: &minio-env
+  MINIO_ROOT_USER: minioadmin
+  MINIO_ROOT_PASSWORD: minioadmin
+
+x-app-env: &app-env
+  DELIVERY__SQLALCHEMY_DATABASE_URI: postgresql+asyncpg://delivery:delivery@postgres:5432/delivery
+  DELIVERY__SECRET_KEY: 10c4b57878f4b86591700387084a58ec08b5d6a9cc086e62a14d4b7d857361e9
+  DELIVERY__MINIO_ROOT_USER: minioadmin
+  DELIVERY__MINIO_ROOT_PASSWORD: minioadmin
+  DELIVERY__MINIO_HOSTNAME: s3:9000
+  DELIVERY__MINIO_ACCESS_KEY: dTYQiuPOHmKoXbOw
+  DELIVERY__MINIO_SECRET_KEY: 6nAB4fTyvS22i75QqedOxapfxgn447H2
+  DELIVERY__MEDIA_URL: http://localhost:9000
+
+x-base-backend: &base-backend
+  build:
+    context: .
+
+
+services:
+  postgres:
+    image: postgres:15.2-alpine
+    environment: *db-env
+    ports:
+      - "5432:5432"
+    volumes:
+      - data:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD", "pg_isready", "-U", "delivery" ]
+      interval: 10s
+      retries: 5
+      start_period: 5s
+
+  s3:
+    image: quay.io/minio/minio:RELEASE.2023-04-07T05-28-58Z
+    command: server /data --console-address ":9001"
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment: *minio-env
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:9000/minio/health/live" ]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+    volumes:
+      - s3_data:/data
+
+  backend:
+    <<: *base-backend
+    environment: *app-env
+    depends_on:
+      - postgres
+      - s3
+    ports:
+      - 8000:8000
+    command: gunicorn delivery.asgi:app --workers 4 --worker-class uvicorn.workers.UvicornWorker --bind 0.0.0.0:8000
+
+  migrate:
+    <<: *base-backend
+    environment: *app-env
+    profiles:
+      - migrate
+    command: alembic upgrade head
+    depends_on:
+      - postgres
+
+  upload_static:
+    <<: *base-backend
+    environment:
+      <<: *app-env
+      PYTHONPATH: /app
+    profiles:
+      - upload_static
+    command: python ./scripts/upload_static.py
+    depends_on:
+      - s3
+
+volumes:
+  data:
+  s3_data:

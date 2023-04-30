@@ -1,0 +1,30 @@
+[tool.poetry]
+name = "delivery"
+version = "0.1.0"
+description = ""
+authors = ["Denis Diveev <ddiveev99@gmail.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "~3.11"
+uvicorn = "^0.21.1"
+fastapi = "^0.95.1"
+sqlalchemy = "^2.0.9"
+alembic = "^1.10.3"
+asyncpg = "^0.27.0"
+pydantic = {extras = ["dotenv", "email"], version = "^1.10.7"}
+greenlet = "^2.0.2"
+passlib = "^1.7.4"
+bcrypt = "^4.0.1"
+python-jose = "^3.3.0"
+python-multipart = "^0.0.6"
+minio = "^7.1.14"
+gunicorn = "^20.1.0"
+
+
+[tool.poetry.group.dev.dependencies]
+black = {extras = ["d"], version = "^23.3.0"}
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
